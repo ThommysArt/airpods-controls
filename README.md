@@ -2,6 +2,10 @@
 
 An Expo + HeroUI Native Android app for AirPods Pro 3, targeting Pixel 9. Material You colors, rounded controls, system/light/dark appearance, and local appearance preferences.
 
+## Install the preview
+
+Download the APK from [GitHub Releases](https://github.com/ThommysArt/airpods-controls/releases). It runs without Expo Go or a development server. The release starts in Preview; see the feature limitations below before using live mode.
+
 ## Run
 
 ```sh
@@ -58,3 +62,19 @@ npx expo export --platform android
 ```
 
 A successful JS export does not validate the Kotlin module or AirPods compatibility. Those require an Android build and physical-device testing.
+
+## Build a standalone preview
+
+With `ANDROID_HOME` pointing to an installed Android SDK:
+
+```sh
+npx expo prebuild --platform android --no-install
+(cd android && ./gradlew app:assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64)
+scripts/sign-preview.sh android/app/build/outputs/apk/release/app-release.apk
+```
+
+The signing script writes an APK and checksum to `artifacts/`. It creates a dedicated preview signing key in `${XDG_DATA_HOME:-$HOME/.local/share}/pods-controls`, outside the repository. Keep this key and its password file to sign compatible updates. Other developers should use their own key.
+
+## Preview validation
+
+TypeScript, ESLint, 20 Expo Doctor checks, Android JavaScript export, Android release compilation/lint, and APK signature verification passed. The signed APK installed and rendered on an Android 17 emulator. Interactive testing was blocked by a `com.android.systemui` ANR in the emulator. Navigation and connection flows still need runtime verification on a working device. Physical Pixel 9 and AirPods Pro 3 compatibility is untested.

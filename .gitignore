@@ -42,3 +42,8 @@ yarn-error.*
 
 # Local release binaries
 artifacts/
+
+# Local Expo module build output
+/modules/*/android/build/
+/modules/*/android/.gradle/
+/modules/*/android/.cxx/

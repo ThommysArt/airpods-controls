@@ -972,7 +972,7 @@ const makeStyles = (c: Palette) =>
       flex: 1,
       minWidth: 0,
       height: 98,
-      borderRadius: 26,
+      borderRadius: 99,
       flexDirection: "column",
       gap: 10,
       paddingHorizontal: 4,

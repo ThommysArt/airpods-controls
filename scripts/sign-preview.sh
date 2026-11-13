@@ -15,7 +15,7 @@ if [[ ! -f "$pods_key_dir/preview.jks" ]]; then
     -keyalg RSA -keysize 3072 -validity 10000 -dname 'CN=Pods Preview'
 fi
 "$pods_build_tools/apksigner" sign --ks "$pods_key_dir/preview.jks" --ks-key-alias pods-preview \
-  --ks-pass "file:$pods_key_dir/preview.password" --key-pass "file:$pods_key_dir/preview.password" \
+  --ks-pass "file:$pods_key_dir/preview.password" \
   --out artifacts/pods-0.1.0-preview.1.apk "$pods_apk"
 "$pods_build_tools/apksigner" verify artifacts/pods-0.1.0-preview.1.apk
 (cd artifacts && sha256sum pods-0.1.0-preview.1.apk > SHA256SUMS)
