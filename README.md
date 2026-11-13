@@ -1,6 +1,6 @@
 # Pods
 
-An Expo + HeroUI Native Android app for AirPods Pro 3. Material You colors, rounded controls, system/light/dark appearance, and local appearance preferences.
+An Expo + HeroUI Native Android app for AirPods Pro 3, targeting Pixel 9. Material You colors, rounded controls, system/light/dark appearance, and local appearance preferences.
 
 ## Run
 
@@ -40,6 +40,8 @@ This is an app foundation with a usable preview, not a complete replacement for 
 
 Apple services such as Siri, account-based device switching, Find My precision finding, firmware distribution, hearing health setup, and Apple Live Translation are not implemented or promised. Some features have no public Android equivalent. Every feature's current availability is explained in Settings.
 
+Pixel compatibility depends on the installed Android and Google Play system versions. [LibrePods documents the underlying Bluetooth restrictions](https://github.com/librepods-org/librepods/blob/main/android/README.md). This app does not include LibrePods code or its protocol implementation.
+
 References:
 
 - [Apple: pair with a non-Apple device](https://support.apple.com/en-asia/guide/airpods/-dev499c9718b/web)
@@ -50,6 +52,7 @@ References:
 
 ```sh
 npm run typecheck
+npm run lint
 npx expo-doctor
 npx expo export --platform android
 ```
