@@ -47,3 +47,6 @@ artifacts/
 /modules/*/android/build/
 /modules/*/android/.gradle/
 /modules/*/android/.cxx/
+
+# EAS local signing credentials
+/credentials.json

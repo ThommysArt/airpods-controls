@@ -1,14 +1,37 @@
 import { requireOptionalNativeModule } from "expo";
 import { PermissionsAndroid, Platform } from "react-native";
 
+export type PairedDevice = { name: string; id: string };
+export type DeviceControl = {
+  status: "disconnected" | "connecting" | "connected" | "error";
+  error: string | null;
+  id: string | null;
+  name: string | null;
+  mode: number | null;
+  conversation: boolean | null;
+  modelNumber: string | null;
+  primaryEar: number | null;
+  secondaryEar: number | null;
+  batteries: Partial<
+    Record<
+      "left" | "right" | "case",
+      { level: number | null; charging: boolean | null }
+    >
+  >;
+};
 export type Snapshot = {
   enabled: boolean;
-  paired: { name: string; id: string }[];
+  paired: PairedDevice[];
   outputs: string[];
   volume: number;
+  control: DeviceControl;
 };
 type AndroidBridge = {
   getSnapshot(): Promise<Snapshot>;
+  connectDevice(id: string): Promise<void>;
+  disconnectDevice(): Promise<void>;
+  setListeningMode(mode: number): Promise<void>;
+  setConversationAwareness(enabled: boolean): Promise<void>;
   setVolume(value: number): Promise<number>;
   openBluetoothSettings(): Promise<void>;
   getMaterialColors(dark: boolean): Record<string, string> | null;
@@ -17,27 +40,31 @@ export const android =
   Platform.OS === "android"
     ? requireOptionalNativeModule<AndroidBridge>("AirPodsAndroid")
     : null;
-
-export async function readAndroid(): Promise<Snapshot> {
+export async function hasBluetoothPermission() {
+  return (
+    Platform.OS === "android" &&
+    (Number(Platform.Version) < 31 ||
+      PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+      ))
+  );
+}
+export async function readAndroid(
+  requestPermission = false,
+): Promise<Snapshot> {
   if (!android)
-    throw new Error(
-      "Live controls need an Android development build. Preview works in Expo Go.",
-    );
-  if (Number(Platform.Version) >= 31) {
-    const permission = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-      {
-        title: "Connect to your AirPods",
-        message:
-          "Nearby devices access lets the app read paired Bluetooth devices. No location access is needed.",
-        buttonPositive: "Continue",
-        buttonNegative: "Cancel",
-      },
-    );
-    if (permission !== PermissionsAndroid.RESULTS.GRANTED)
+    throw new Error("Install the Android app to connect your AirPods.");
+  if (!(await hasBluetoothPermission())) {
+    if (
+      !requestPermission ||
+      (await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+      )) !== PermissionsAndroid.RESULTS.GRANTED
+    ) {
       throw new Error(
-        "Nearby devices access is off. Enable it in Android app settings to view your AirPods.",
+        "Allow Nearby devices access in app settings to connect your AirPods.",
       );
+    }
   }
   return android.getSnapshot();
 }

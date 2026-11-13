@@ -11,6 +11,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class AirPodsAndroidModule : Module() {
+  private val connection = AirPodsConnection()
   private val context: Context
     get() = appContext.reactContext ?: error("Android context is unavailable")
   private val audio: AudioManager
@@ -18,6 +19,18 @@ class AirPodsAndroidModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("AirPodsAndroid")
+    OnDestroy { connection.destroy() }
+    AsyncFunction("connectDevice") { id: String ->
+      val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
+        ?: error("Bluetooth is unavailable on this phone")
+      check(adapter.isEnabled) { "Turn on Bluetooth to connect your AirPods." }
+      val device = adapter.bondedDevices.firstOrNull { it.address == id }
+        ?: error("Pair your AirPods in Bluetooth settings first.")
+      connection.connect(adapter, device)
+    }
+    AsyncFunction("disconnectDevice") { connection.disconnect() }
+    AsyncFunction("setListeningMode") { mode: Int -> connection.setMode(mode) }
+    AsyncFunction("setConversationAwareness") { enabled: Boolean -> connection.setConversation(enabled) }
 
     AsyncFunction("getSnapshot") {
       // BLUETOOTH_CONNECT is requested by the JS layer before this call.
@@ -27,6 +40,7 @@ class AirPodsAndroidModule : Module() {
         .map { it.productName.toString() }.distinct()
       mapOf(
         "enabled" to (adapter?.isEnabled ?: false),
+        "control" to connection.snapshot(),
         "paired" to (adapter?.bondedDevices?.map { mapOf("name" to (it.name ?: "Bluetooth device"), "id" to it.address) } ?: emptyList()),
         "outputs" to outputs,
         "volume" to audio.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble() / audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)

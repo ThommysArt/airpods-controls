@@ -2,6 +2,8 @@
 set -euo pipefail
 
 pods_apk="${1:?Usage: scripts/sign-preview.sh path/to/app-release.apk}"
+pods_release="${2:?Usage: scripts/sign-preview.sh path/to/app-release.apk release-version}"
+[[ "$pods_release" =~ ^[0-9]+\.[0-9]+\.[0-9]+-preview\.[0-9]+$ ]] || { echo "Invalid preview version" >&2; exit 1; }
 pods_key_dir="${XDG_DATA_HOME:-$HOME/.local/share}/pods-controls"
 pods_sdk="${ANDROID_HOME:-$HOME/Android/Sdk}"
 pods_build_tools="$(find "$pods_sdk/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
@@ -16,6 +18,6 @@ if [[ ! -f "$pods_key_dir/preview.jks" ]]; then
 fi
 "$pods_build_tools/apksigner" sign --ks "$pods_key_dir/preview.jks" --ks-key-alias pods-preview \
   --ks-pass "file:$pods_key_dir/preview.password" \
-  --out artifacts/pods-0.1.0-preview.1.apk "$pods_apk"
-"$pods_build_tools/apksigner" verify artifacts/pods-0.1.0-preview.1.apk
-(cd artifacts && sha256sum pods-0.1.0-preview.1.apk > SHA256SUMS)
+  --out artifacts/pods-${pods_release}.apk "$pods_apk"
+"$pods_build_tools/apksigner" verify artifacts/pods-${pods_release}.apk
+(cd artifacts && sha256sum pods-${pods_release}.apk > SHA256SUMS)
