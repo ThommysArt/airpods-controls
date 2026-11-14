@@ -17,7 +17,7 @@ class AapProtocolTest {
   }
   @Test fun rejectsTruncatedInvalidAndUnsupportedPackets() {
     assertNull(AapProtocol.decode(hex("04 00 04 00 04 00 03 02 01 64 02 01")))
-    assertNull(AapProtocol.decode(hex("04 00 04 00 04 00 01 02 01 65 02 01")))
+    assertNull(AapProtocol.decode(hex("04 00 04 00 04 00 01 02 01 65 02 01"))!!.batteries.single().level)
     assertNull(AapProtocol.decode(hex("04 00 04 00 09 00 0d 05 00 00 00")))
     assertNull(AapProtocol.decode(hex("04 00 04 00 09 00 28 00 00 00 00")))
     assertNull(AapProtocol.decode(hex("04 00 04 00 09 00 0d 02 ff 00 00")))
@@ -75,5 +75,11 @@ class AapProtocolTest {
     val battery = AapProtocol.decode(hex("04 00 04 00 04 00 01 01 01 55 02 01"))!!.batteries.single()
     assertEquals("headset", battery.component)
     assertEquals(85, battery.level)
+  }
+  @Test fun caseChargingIsReportedEvenWhenItsPercentageIsUnknown() {
+    val battery = AapProtocol.decode(hex("04 00 04 00 04 00 01 08 01 ff 01 01"))!!.batteries.single()
+    assertEquals("case", battery.component)
+    assertNull(battery.level)
+    assertEquals(true, battery.charging)
   }
 }

@@ -86,3 +86,9 @@ The script writes the APK and checksum to `artifacts/`. It keeps the preview sig
 ## Latest development preview validation
 
 The 0.2.0 preview was built on EAS. Native compilation, seven protocol tests, lint, TypeScript, and APK signature checks passed. The APK includes ARM64 support and the AirPods native module, and uses the previous preview's signing certificate. It installed on an Android 17 emulator. Interactive runtime checks were blocked by a `com.android.systemui` ANR, so navigation, theme switching, and connection flow still require device testing.
+
+## Listening and battery updates in 0.2.2
+
+Listening mode uses one three-way segmented selector. Adaptive models show Transparency, Adaptive, and Noise cancellation, with an additional noise-control on/off switch. Older models show Transparency, Off, and Noise cancellation. Selection follows device confirmations. Android media volume uses the native Material 3 Compose slider from Expo UI and follows the app palette and appearance.
+
+Battery percentage and charging status have separate validity and freshness. A missing percentage no longer discards a reported case charging flag. Unknown status updates preserve the last known charging state with an explicit stale label, while a reported unplug/discharging state replaces it immediately. AAP notification requests repeat every 15 seconds and when the app returns to the foreground. Manual refresh waits for a battery report, with a bounded timeout. Readings older than 45 seconds are labeled stale. Case updates still depend on what the hardware transmits; closed or sleeping cases may not supply a fresh report.

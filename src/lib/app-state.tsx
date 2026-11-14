@@ -85,7 +85,10 @@ function useAppState() {
       if (AppState.currentState === "active") void refresh();
     }, 1500);
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") void refresh();
+      if (state === "active") {
+        void refresh();
+        void android?.refreshReadings().catch(() => {});
+      }
     });
     return () => {
       mounted.current = false;

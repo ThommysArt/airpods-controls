@@ -1,5 +1,7 @@
+import packageInfo from "../../package.json";
 import { router } from "expo-router";
-import { Pressable, Switch, Text, View } from "react-native";
+import { useState } from "react";
+import { Platform, Share, Pressable, Switch, Text, View } from "react-native";
 import {
   Action,
   Card,
@@ -9,16 +11,39 @@ import {
   Screen,
   styles as s,
 } from "../components/ui";
-import { usePods } from "../lib/app-state";
+import { message, usePods } from "../lib/app-state";
 export default function Settings() {
   const {
     palette: c,
+    snapshot,
     theme,
     setTheme,
     dynamic,
     setDynamic,
     bluetoothSettings,
   } = usePods();
+  const [reportError, setReportError] = useState<string | null>(null);
+  const shareBatteryReport = async () => {
+    setReportError(null);
+    try {
+      await Share.share({
+        title: "Pods battery report",
+        message: JSON.stringify(
+          {
+            appVersion: packageInfo.version,
+            androidVersion: Platform.Version,
+            model: snapshot?.control.modelNumber,
+            readings: snapshot?.control.batteries,
+            reports: snapshot?.control.batteryReports ?? [],
+          },
+          null,
+          2,
+        ),
+      });
+    } catch (error) {
+      setReportError(message(error));
+    }
+  };
   return (
     <Screen>
       <View style={s.row}>
@@ -89,6 +114,12 @@ export default function Settings() {
           />
         </View>
       </Card>
+      {snapshot?.control.status === "connected" && (
+        <Action secondary onPress={() => void shareBatteryReport()}>
+          Share battery report
+        </Action>
+      )}
+      {reportError && <Copy>{reportError}</Copy>}
       <Action secondary onPress={() => void bluetoothSettings()}>
         Bluetooth settings
       </Action>

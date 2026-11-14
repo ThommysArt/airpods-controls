@@ -8,7 +8,9 @@ import {
   Text,
   View,
 } from "react-native";
-import Slider from "@react-native-community/slider";
+import { MaterialVolumeSlider } from "../components/MaterialVolumeSlider";
+import { ListeningModeSwitch } from "../components/ListeningModeSwitch";
+import { BatteryReadingAge } from "../components/BatteryReadingAge";
 import { AirPodsArt } from "../components/AirPods";
 import {
   Action,
@@ -16,24 +18,13 @@ import {
   Copy,
   Icon,
   IconButton,
-  IconName,
   Screen,
   styles as s,
 } from "../components/ui";
 import { android, DeviceControl } from "../lib/android";
 import { message, usePods } from "../lib/app-state";
-import {
-  modelName,
-  supportsAdaptive,
-  supportsNoiseControl,
-} from "../lib/models";
+import { modelName, supportsNoiseControl } from "../lib/models";
 
-const modes: { value: number; name: string; icon: IconName }[] = [
-  { value: 1, name: "Off", icon: "ellipse-outline" },
-  { value: 3, name: "Transparency", icon: "ear-outline" },
-  { value: 2, name: "Noise cancellation", icon: "volume-mute-outline" },
-  { value: 4, name: "Adaptive", icon: "sparkles-outline" },
-];
 export default function Home() {
   const {
     palette: c,
@@ -338,13 +329,17 @@ function Connected({ device }: { device: DeviceControl }) {
       <Card>
         <View style={s.spread}>
           <Copy title>Battery</Copy>
-          <IconButton
-            name="refresh-outline"
-            label="Refresh AirPods readings"
-            onPress={() =>
-              void change("refresh", () => android?.refreshReadings())
-            }
-          />
+          {pending === "refresh" ? (
+            <ActivityIndicator color={c.primary} />
+          ) : (
+            <IconButton
+              name="refresh-outline"
+              label="Refresh AirPods readings"
+              onPress={() =>
+                void change("refresh", () => android?.refreshReadings())
+              }
+            />
+          )}
         </View>
         {batteries.length ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 24 }}>
@@ -368,10 +363,26 @@ function Connected({ device }: { device: DeviceControl }) {
                       : `${battery.level}%`}
                   </Text>
                   {battery.stale && <Copy muted>Last reading</Copy>}
-                  {battery.charging && (
-                    <Icon name="flash" size={18} color={c.primary} />
+                  {battery.charging === true && (
+                    <Icon
+                      name="flash"
+                      size={18}
+                      color={battery.chargingStale ? c.muted : c.primary}
+                    />
                   )}
                 </View>
+                {!!battery.updatedAt && (
+                  <BatteryReadingAge updatedAt={battery.updatedAt} />
+                )}
+                <Copy muted>
+                  {battery.charging === null
+                    ? "Charging status unknown"
+                    : battery.chargingStale
+                      ? `Last reported: ${battery.charging ? "charging" : "not charging"}`
+                      : battery.charging
+                        ? "Charging"
+                        : "Not charging"}
+                </Copy>
               </View>
             ))}
           </View>
@@ -396,60 +407,14 @@ function Connected({ device }: { device: DeviceControl }) {
               Reading current mode. You can select a mode below.
             </Copy>
           )}
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-            {modes
-              .filter(
-                (mode) =>
-                  mode.value !== 4 ||
-                  device.mode === 4 ||
-                  supportsAdaptive(device.modelNumber),
-              )
-              .map((mode) => (
-                <Pressable
-                  key={mode.value}
-                  accessibilityRole="radio"
-                  accessibilityState={{
-                    checked: device.mode === mode.value,
-                    disabled: pending !== null,
-                  }}
-                  accessibilityLabel={mode.name}
-                  disabled={pending !== null}
-                  onPress={() =>
-                    void change("mode", () =>
-                      android?.setListeningMode(mode.value),
-                    )
-                  }
-                  style={({ pressed }) => ({
-                    width: "47%",
-                    flexGrow: 1,
-                    minHeight: 112,
-                    padding: 18,
-                    borderRadius: 30,
-                    backgroundColor:
-                      device.mode === mode.value ? c.container : c.background,
-                    opacity: pressed ? 0.6 : 1,
-                    justifyContent: "center",
-                    gap: 12,
-                  })}
-                >
-                  <Icon
-                    name={mode.icon}
-                    color={device.mode === mode.value ? c.onContainer : c.text}
-                  />
-                  <Text
-                    style={{
-                      color:
-                        device.mode === mode.value ? c.onContainer : c.text,
-                      fontSize: 15,
-                      lineHeight: 20,
-                      fontWeight: "500",
-                    }}
-                  >
-                    {mode.name}
-                  </Text>
-                </Pressable>
-              ))}
-          </View>
+          <ListeningModeSwitch
+            model={device.modelNumber}
+            value={device.mode}
+            disabled={pending !== null}
+            onChange={(mode) =>
+              void change("mode", () => android?.setListeningMode(mode))
+            }
+          />
         </Card>
       )}
       {device.conversation !== null && (
@@ -486,16 +451,11 @@ function Connected({ device }: { device: DeviceControl }) {
             <Copy title>Media volume</Copy>
             <Icon name="volume-high-outline" />
           </View>
-          <Slider
-            accessibilityLabel="Android media volume"
+          <MaterialVolumeSlider
             value={snapshot.volume}
-            minimumValue={0}
-            maximumValue={1}
-            minimumTrackTintColor={c.primary}
-            maximumTrackTintColor={c.outline}
-            thumbTintColor={c.primary}
-            onSlidingComplete={(value) =>
-              void change("volume", () => android?.setVolume(value))
+            disabled={pending !== null}
+            onCommit={(value) =>
+              change("volume", () => android?.setVolume(value))
             }
           />
           <Copy muted>Controls your phone’s current audio output.</Copy>

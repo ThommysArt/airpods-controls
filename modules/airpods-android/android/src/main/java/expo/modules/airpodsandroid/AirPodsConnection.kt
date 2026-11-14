@@ -9,6 +9,7 @@ import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.ScheduledFuture
 
 internal class AirPodsConnection {
   private val lock = Object()
@@ -24,13 +25,16 @@ internal class AirPodsConnection {
   private var model: String? = null
   private var primaryEar: Int? = null
   private var secondaryEar: Int? = null
-  private val batteries = mutableMapOf<String, Map<String, Any?>>()
+  private val batteries = BatteryReadings()
+  private var batteryRevision = 0
+  private var polling: ScheduledFuture<*>? = null
 
   fun snapshot(): Map<String, Any?> = synchronized(lock) {
     mapOf("status" to status, "error" to error, "id" to deviceId, "name" to name,
       "mode" to mode, "conversation" to conversation, "modelNumber" to model,
       "primaryEar" to primaryEar, "secondaryEar" to secondaryEar,
-      "batteries" to batteries.toMap())
+      "batteryReports" to batteries.reports(),
+      "batteries" to batteries.snapshot(System.currentTimeMillis()))
   }
 
   fun connect(adapter: BluetoothAdapter, device: BluetoothDevice) {
@@ -71,6 +75,13 @@ internal class AirPodsConnection {
               opened.outputStream.flush()
             }
             initialized = true
+            synchronized(lock) {
+              if (token != generation) return@Thread
+              polling = scheduler.scheduleWithFixedDelay({ synchronized(lock) {
+                if (token == generation && status == "connected") try { requestReadingsLocked() }
+                catch (_: IOException) { failLocked("AirPods disconnected. Reconnect to continue.") }
+              } }, 15, 15, TimeUnit.SECONDS)
+            }
             // Retry the initial subscription while firmware populates its state.
             for (delay in listOf(1L, 3L, 8L)) scheduler.schedule({ synchronized(lock) {
               if (token == generation) try { requestReadingsLocked() } catch (_: IOException) {}
@@ -86,11 +97,8 @@ internal class AirPodsConnection {
               update.modelNumber?.let { model = it }
               update.primaryEar?.let { primaryEar = it }
               update.secondaryEar?.let { secondaryEar = it }
-              for (battery in update.batteries) {
-                val prior = batteries[battery.component]?.get("level")
-                batteries[battery.component] = mapOf("level" to (battery.level ?: prior),
-                  "charging" to battery.charging, "stale" to (battery.level == null && prior != null))
-              }
+              if (update.batteries.isNotEmpty()) batteryRevision++
+              for (battery in update.batteries) batteries.accept(battery, System.currentTimeMillis())
             }
             lock.notifyAll()
           }
@@ -127,7 +135,16 @@ internal class AirPodsConnection {
   }
   fun requestReadings() = synchronized(lock) {
     check(status == "connected") { "Connect your AirPods first." }
+    val before = batteryRevision
+    val token = generation
     requestReadingsLocked()
+    val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
+    while (token == generation && batteryRevision == before) {
+      val remaining = deadline - System.nanoTime()
+      if (remaining <= 0) throw IOException("Your AirPods have not sent a new battery reading yet. Keep the case nearby with its lid open and try again.")
+      TimeUnit.NANOSECONDS.timedWait(lock, remaining)
+    }
+    check(token == generation) { "AirPods disconnected" }
   }
   private fun requestReadingsLocked() {
     socket?.outputStream?.let { it.write(AapProtocol.subscribe); it.flush() }
@@ -136,6 +153,7 @@ internal class AirPodsConnection {
   fun destroy() { disconnect(); scheduler.shutdownNow() }
   private fun closeLocked() {
     generation++
+    polling?.cancel(false); polling = null
     try { socket?.close() } catch (_: Exception) {}
     socket = null; status = "disconnected"; error = null; deviceId = null; name = null
     mode = null; conversation = null; model = null; primaryEar = null; secondaryEar = null; batteries.clear()

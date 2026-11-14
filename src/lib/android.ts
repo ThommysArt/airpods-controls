@@ -12,10 +12,23 @@ export type DeviceControl = {
   modelNumber: string | null;
   primaryEar: number | null;
   secondaryEar: number | null;
+  batteryReports?: {
+    receivedAt: number;
+    component: string;
+    reportedLevel: number | null;
+    reportedStatus: number | null;
+  }[];
   batteries: Partial<
     Record<
       "left" | "right" | "case" | "headset",
-      { level: number | null; charging: boolean | null; stale?: boolean }
+      {
+        level: number | null;
+        charging: boolean | null;
+        stale?: boolean;
+        chargingStale?: boolean;
+        updatedAt?: number;
+        chargingUpdatedAt?: number;
+      }
     >
   >;
 };

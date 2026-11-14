@@ -13,7 +13,7 @@ internal object AapProtocol {
     require(id == 0x0d && value in 1..4 || id == 0x28 && value in 1..2)
     return byteArrayOf(4, 0, 4, 0, 9, 0, id.toByte(), value.toByte(), 0, 0, 0)
   }
-  data class Battery(val component: String, val level: Int?, val charging: Boolean?)
+  data class Battery(val component: String, val level: Int?, val charging: Boolean?, val rawLevel: Int? = null, val rawStatus: Int? = null)
   data class Update(
     val batteries: List<Battery> = emptyList(), val mode: Int? = null,
     val conversation: Boolean? = null, val modelNumber: String? = null,
@@ -33,8 +33,7 @@ internal object AapProtocol {
           val status = u(offset + 3)
           val known = status == 1 || status == 2
           val levelKnown = status != 4 && u(offset + 2) in 0..100
-          if (known && u(offset + 2) > 100) return null
-          readings.add(Battery(component, if (levelKnown) u(offset + 2) else null, if (known) status == 1 else null))
+          readings.add(Battery(component, if (levelKnown) u(offset + 2) else null, if (known) status == 1 else null, u(offset + 2), status))
         }
         Update(batteries = readings)
       }

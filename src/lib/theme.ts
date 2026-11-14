@@ -10,7 +10,7 @@ const light = {
   text: "#20251b",
   muted: "#69705f",
   outline: "#dce0d2",
-};
+} satisfies Record<string, `#${string}`>;
 const dark = {
   primary: "#b8cf94",
   onPrimary: "#243610",
@@ -21,8 +21,8 @@ const dark = {
   text: "#e4e8da",
   muted: "#a4ac99",
   outline: "#3e4637",
-};
-export type Palette = typeof light;
+} satisfies Record<string, `#${string}`>;
+export type Palette = { [K in keyof typeof light]: `#${string}` };
 export function getPalette(isDark: boolean, dynamic: boolean): Palette {
   const fallback = isDark ? dark : light;
   if (!dynamic || !android) return fallback;
