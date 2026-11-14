@@ -82,3 +82,7 @@ scripts/sign-preview.sh android/app/build/outputs/apk/release/app-release.apk 0.
 ```
 
 The script writes the APK and checksum to `artifacts/`. It keeps the preview signing key in `${XDG_DATA_HOME:-$HOME/.local/share}/pods-controls`, outside the repository. Preserve that key to sign compatible updates.
+
+## Latest development preview validation
+
+The 0.2.0 preview was built on EAS. Native compilation, seven protocol tests, lint, TypeScript, and APK signature checks passed. The APK includes ARM64 support and the AirPods native module, and uses the previous preview's signing certificate. It installed on an Android 17 emulator. Interactive runtime checks were blocked by a `com.android.systemui` ANR, so navigation, theme switching, and connection flow still require device testing.
