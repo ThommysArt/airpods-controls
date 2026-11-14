@@ -55,15 +55,27 @@ internal class AirPodsConnection {
         synchronized(lock) {
           if (token != generation) return@Thread
           opened.outputStream.write(AapProtocol.handshake)
-          opened.outputStream.write(AapProtocol.features)
-          opened.outputStream.write(AapProtocol.subscribe)
           opened.outputStream.flush()
         }
+        var initialized = false
         val decoder = AapProtocol.Decoder()
         val buffer = ByteArray(4096)
         while (true) {
           val count = opened.inputStream.read(buffer)
           if (count < 0) throw IOException("AirPods disconnected")
+          if (!initialized) {
+            synchronized(lock) {
+              if (token != generation) return@Thread
+              opened.outputStream.write(AapProtocol.features)
+              opened.outputStream.write(AapProtocol.subscribe)
+              opened.outputStream.flush()
+            }
+            initialized = true
+            // Retry the initial subscription while firmware populates its state.
+            for (delay in listOf(1L, 3L, 8L)) scheduler.schedule({ synchronized(lock) {
+              if (token == generation) try { requestReadingsLocked() } catch (_: IOException) {}
+            } }, delay, TimeUnit.SECONDS)
+          }
           val updates = decoder.accept(buffer.copyOf(count))
           synchronized(lock) {
             if (token != generation) return@Thread
@@ -74,7 +86,11 @@ internal class AirPodsConnection {
               update.modelNumber?.let { model = it }
               update.primaryEar?.let { primaryEar = it }
               update.secondaryEar?.let { secondaryEar = it }
-              for (battery in update.batteries) batteries[battery.component] = mapOf("level" to battery.level, "charging" to battery.charging)
+              for (battery in update.batteries) {
+                val prior = batteries[battery.component]?.get("level")
+                batteries[battery.component] = mapOf("level" to (battery.level ?: prior),
+                  "charging" to battery.charging, "stale" to (battery.level == null && prior != null))
+              }
             }
             lock.notifyAll()
           }
@@ -108,6 +124,13 @@ internal class AirPodsConnection {
       }
       check(token == generation && status == "connected") { "AirPods disconnected" }
     }
+  }
+  fun requestReadings() = synchronized(lock) {
+    check(status == "connected") { "Connect your AirPods first." }
+    requestReadingsLocked()
+  }
+  private fun requestReadingsLocked() {
+    socket?.outputStream?.let { it.write(AapProtocol.subscribe); it.flush() }
   }
   fun disconnect() = synchronized(lock) { closeLocked() }
   fun destroy() { disconnect(); scheduler.shutdownNow() }

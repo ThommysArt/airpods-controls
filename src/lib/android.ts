@@ -14,8 +14,8 @@ export type DeviceControl = {
   secondaryEar: number | null;
   batteries: Partial<
     Record<
-      "left" | "right" | "case",
-      { level: number | null; charging: boolean | null }
+      "left" | "right" | "case" | "headset",
+      { level: number | null; charging: boolean | null; stale?: boolean }
     >
   >;
 };
@@ -30,6 +30,7 @@ type AndroidBridge = {
   getSnapshot(): Promise<Snapshot>;
   connectDevice(id: string): Promise<void>;
   disconnectDevice(): Promise<void>;
+  refreshReadings(): Promise<void>;
   setListeningMode(mode: number): Promise<void>;
   setConversationAwareness(enabled: boolean): Promise<void>;
   setVolume(value: number): Promise<number>;

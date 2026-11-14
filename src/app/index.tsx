@@ -22,7 +22,11 @@ import {
 } from "../components/ui";
 import { android, DeviceControl } from "../lib/android";
 import { message, usePods } from "../lib/app-state";
-import { modelName, supportsAdaptive } from "../lib/models";
+import {
+  modelName,
+  supportsAdaptive,
+  supportsNoiseControl,
+} from "../lib/models";
 
 const modes: { value: number; name: string; icon: IconName }[] = [
   { value: 1, name: "Off", icon: "ellipse-outline" },
@@ -332,7 +336,16 @@ function Connected({ device }: { device: DeviceControl }) {
         )}
       </Card>
       <Card>
-        <Copy title>Battery</Copy>
+        <View style={s.spread}>
+          <Copy title>Battery</Copy>
+          <IconButton
+            name="refresh-outline"
+            label="Refresh AirPods readings"
+            onPress={() =>
+              void change("refresh", () => android?.refreshReadings())
+            }
+          />
+        </View>
         {batteries.length ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 24 }}>
             {batteries.map(([part, battery]) => (
@@ -342,7 +355,9 @@ function Connected({ device }: { device: DeviceControl }) {
                     ? "Case"
                     : part === "left"
                       ? "Left"
-                      : "Right"}
+                      : part === "headset"
+                        ? "Headphones"
+                        : "Right"}
                 </Copy>
                 <View style={s.row}>
                   <Text
@@ -352,6 +367,7 @@ function Connected({ device }: { device: DeviceControl }) {
                       ? "Unavailable"
                       : `${battery.level}%`}
                   </Text>
+                  {battery.stale && <Copy muted>Last reading</Copy>}
                   {battery.charging && (
                     <Icon name="flash" size={18} color={c.primary} />
                   )}
@@ -368,12 +384,18 @@ function Connected({ device }: { device: DeviceControl }) {
           <Copy>{error}</Copy>
         </Card>
       )}
-      {device.mode !== null && (
+      {(device.mode !== null ||
+        supportsNoiseControl(device.modelNumber, device.name)) && (
         <Card>
           <View style={s.spread}>
             <Copy title>Listening mode</Copy>
             {pending === "mode" && <ActivityIndicator color={c.primary} />}
           </View>
+          {device.mode === null && (
+            <Copy muted>
+              Reading current mode. You can select a mode below.
+            </Copy>
+          )}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
             {modes
               .filter(

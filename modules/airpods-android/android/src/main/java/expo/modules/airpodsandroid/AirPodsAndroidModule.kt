@@ -12,6 +12,7 @@ import expo.modules.kotlin.modules.ModuleDefinition
 
 class AirPodsAndroidModule : Module() {
   private val connection = AirPodsConnection()
+  private var discovery: AirPodsDiscovery? = null
   private val context: Context
     get() = appContext.reactContext ?: error("Android context is unavailable")
   private val audio: AudioManager
@@ -19,22 +20,28 @@ class AirPodsAndroidModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("AirPodsAndroid")
-    OnDestroy { connection.destroy() }
+    OnDestroy { discovery?.close(); connection.destroy() }
     AsyncFunction("connectDevice") { id: String ->
       val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
         ?: error("Bluetooth is unavailable on this phone")
       check(adapter.isEnabled) { "Turn on Bluetooth to connect your AirPods." }
       val device = adapter.bondedDevices.firstOrNull { it.address == id }
         ?: error("Pair your AirPods in Bluetooth settings first.")
+      discovery?.selected(device)
       connection.connect(adapter, device)
     }
-    AsyncFunction("disconnectDevice") { connection.disconnect() }
+    AsyncFunction("disconnectDevice") { discovery?.disconnect() ?: connection.disconnect() }
+    AsyncFunction("refreshReadings") { connection.requestReadings() }
     AsyncFunction("setListeningMode") { mode: Int -> connection.setMode(mode) }
     AsyncFunction("setConversationAwareness") { enabled: Boolean -> connection.setConversation(enabled) }
 
     AsyncFunction("getSnapshot") {
       // BLUETOOTH_CONNECT is requested by the JS layer before this call.
       val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
+      if (adapter != null) {
+        if (discovery == null) discovery = AirPodsDiscovery(context, connection)
+        discovery?.start(adapter)
+      }
       val outputs = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
         .filter { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET }
         .map { it.productName.toString() }.distinct()

@@ -55,4 +55,25 @@ class AapProtocolTest {
     assertThrows(IllegalArgumentException::class.java) { AapProtocol.control(13, 0) }
     assertThrows(IllegalArgumentException::class.java) { AapProtocol.control(999, 1) }
   }
+  @Test fun chargingUnknownDoesNotDiscardAValidPercentage() {
+    val update = AapProtocol.decode(hex("04 00 04 00 04 00 03 02 01 55 00 01 04 01 53 00 01 08 01 13 02 01"))!!
+    assertEquals(listOf(85, 83, 19), update.batteries.map { it.level })
+    assertNull(update.batteries[0].charging)
+    assertNull(update.batteries[1].charging)
+  }
+  @Test fun repeatedHeadersSurviveEveryFragmentBoundary() {
+    val bytes = hex("04 00 04 00 04 00 04 00 09 00 0d 02 00 00 00 04 00 04 00 04 00 04 00 04 00 01 02 01 55 02 01")
+    for (split in 1 until bytes.size) {
+      val decoder = AapProtocol.Decoder()
+      val updates = decoder.accept(bytes.copyOfRange(0, split)) + decoder.accept(bytes.copyOfRange(split, bytes.size))
+      assertEquals("split $split", 2, updates.size)
+      assertEquals(2, updates[0].mode)
+      assertEquals(85, updates[1].batteries.single().level)
+    }
+  }
+  @Test fun readsMaxHeadsetBatteryComponent() {
+    val battery = AapProtocol.decode(hex("04 00 04 00 04 00 01 01 01 55 02 01"))!!.batteries.single()
+    assertEquals("headset", battery.component)
+    assertEquals(85, battery.level)
+  }
 }

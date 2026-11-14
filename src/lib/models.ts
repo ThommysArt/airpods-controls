@@ -27,3 +27,13 @@ export function supportsAdaptive(number: string | null) {
     "AirPods Max 2",
   ].includes(name);
 }
+
+export function supportsNoiseControl(
+  number: string | null,
+  name: string | null,
+) {
+  const known = groups.find(([, ids]) => number && ids.includes(number));
+  if (known) return /Pro|Max|ANC/.test(known[0]);
+  // Keep commands reachable while a Pro/Max device's metadata is loading.
+  return /AirPods.*(?:Pro|Max|ANC)/i.test(name ?? "");
+}

@@ -28,12 +28,13 @@ internal object AapProtocol {
         val readings = mutableListOf<Battery>()
         for (i in 0 until u(6)) {
           val offset = 7 + i * 5
-          val component = when (u(offset)) { 2 -> "right"; 4 -> "left"; 8 -> "case"; else -> return null }
+          val component = when (u(offset)) { 1 -> "headset"; 2 -> "right"; 4 -> "left"; 8 -> "case"; else -> return null }
           if (u(offset + 1) != 1 || u(offset + 4) != 1) return null
           val status = u(offset + 3)
           val known = status == 1 || status == 2
+          val levelKnown = status != 4 && u(offset + 2) in 0..100
           if (known && u(offset + 2) > 100) return null
-          readings.add(Battery(component, if (known) u(offset + 2) else null, if (known) status == 1 else null))
+          readings.add(Battery(component, if (levelKnown) u(offset + 2) else null, if (known) status == 1 else null))
         }
         Update(batteries = readings)
       }
@@ -65,6 +66,11 @@ internal object AapProtocol {
       while (pending.size >= 6) {
         if (!(pending[0] == 4.toByte() && pending[1] == 0.toByte() && pending[2] == 4.toByte() && pending[3] == 0.toByte())) {
           pending = pending.drop(1).toByteArray(); continue
+        }
+        if (pending.size < 8 && pending[4] == 4.toByte() && pending[5] == 0.toByte()) break
+        // Some firmware repeats the common header before an opcode.
+        if (pending.size >= 8 && pending.copyOfRange(0, 4).contentEquals(pending.copyOfRange(4, 8))) {
+          pending = pending.copyOfRange(4, pending.size); continue
         }
         val size = when (pending[4].toInt() and 255) {
           4 -> { if (pending.size < 7) break; val count = pending[6].toInt() and 255; if (count !in 1..3) 6 else 7 + 5 * count }
